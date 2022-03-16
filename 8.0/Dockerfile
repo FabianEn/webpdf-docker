@@ -1,72 +1,17 @@
-FROM debian:buster
-LABEL maintainer="webPDF Docker Maintainers <info@softvision.de>"
+FROM ubi8/ubi:latest
+LABEL maintainer="webPDF Docker Maintainers <asptest>"
 
 # installing packages...
-RUN apt-get update
+RUN sudo yum install wget gpg
 
-RUN apt-get --yes install \
-    sudo \
-    wget \
-    gpg \
-    apt-transport-https \
-    rcconf \
-    locales
+RUN echo -e "[webpdfrepo] \nname=webPDF Repository \nbaseurl=http://packages.softvision.de/centos/7/x86_64/webpdf/8/ \nenabled=1 \ngpgcheck=1" >/etc/yum.repos.d/webpdf.repo
+RUN sudo wget https://packages.softvision.de/keys/public.gpg -P /tmp/
+RUN sudo gpg --with-fingerprint /tmp/public.gpg
+RUN sudo rpm --import /tmp/public.gpg
+RUN yum update
+RUN yum install webpdf -y
 
-# Set the locale
-ENV LANG C.UTF-8
-ENV LC_ALL C.UTF-8
-
-# adding key for the package repository
-RUN APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=1 apt-key adv --fetch-keys https://packages.softvision.de/keys/public.gpg  > /dev/null 2>&1
-
-# installing repository
-RUN echo "deb https://packages.softvision.de/debian/webpdf/8/ buster non-free" | tee /etc/apt/sources.list.d/webpdf.list && \
-    apt-get update
-
-# installing application ...
-RUN apt-get --yes install webpdf
-
-# switching Chromium mode
-RUN sed -i -r 's/<bridges\/>/<bridges><chromium noSandbox="true"\/><\/bridges>/' /opt/webpdf/conf/application.xml
-
-# install missing fonts
-RUN echo "deb http://ftp.us.debian.org/debian stable main contrib" >> /etc/apt/sources.list && \
-    cat /etc/apt/sources.list && \
-    apt-get update && \
-    apt-get --yes install \
-    ttf-mscorefonts-installer \
-    ttf-ancient-fonts \
-    ttf-ancient-fonts-symbola \
-    ttf-unifont \
-    ttf-dejavu-extra \
-    ttf-dejavu-core \
-    ttf-opensymbol \
-    ttf-aenigma \
-    fonts-liberation \
-    fonts-linuxlibertine \
-    fonts-freefont-ttf
-
-# copy the fonts
-RUN mkdir /root/fonts && \
-    cp /usr/share/fonts/truetype/*/*.ttf /root/fonts -n && \
-    rm /usr/share/fonts/truetype/* -R && \
-    mv /root/fonts/* /usr/share/fonts/truetype/ && \
-    rm /root/fonts/ -R && \
-    dpkg-reconfigure -f noninteractive -plow fontconfig && \
-    fc-cache -fv
-
-# cleanup
-RUN /etc/init.d/x11-common stop && \
-    rcconf --off x11-common && \
-    apt-get -y autoremove && \
-    apt-get -y clean && \
-    apt-get -y purge && \
-    find /var/log/ -maxdepth 1 -type f -delete && \
-    rm /etc/init.d/x11-common && \
-    rm -rf /root/* && \
-    rm -rf /opt/webpdf/temp/* && \
-    rm -rf /opt/webpdf/work/* && \
-    rm -rf /app/webpdf.deb
+# clean ?
 
 EXPOSE 8080
 
